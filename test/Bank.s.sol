@@ -8,14 +8,21 @@ import {console} from "forge-std/console.sol";
 
 contract BankTest is Test {
     Bank public bank;
+    Attacker public attacker;
     address public constant OWNER = address(0xBEEF);
+    address public constant ATTACKER = address(0xBAD);
 
     function setUp() public {
         vm.prank(OWNER);
         bank = new Bank();
 
+        vm.prank(ATTACKER);
+        attacker = new Attacker(address(bank));
+
         vm.label(address(bank), "Bank");
         vm.label(OWNER, "Bank Owner");
+        vm.label(ATTACKER, "Attacker");
+        vm.label(address(attacker), "Attacker Contract");
     }
 
     function testDeposit() public {
@@ -94,35 +101,26 @@ contract BankTest is Test {
 
     function testReentrancyAttack() public {
         // Arrange
-        address attackerEoa = address(1);
-        vm.label(attackerEoa, "AttackerEOA");
         uint256 initialBankBalance = 10 ether;
         uint256 attackerInitialBalance = 1 ether;
 
         // vm.deal(address(bank), initialBankBalance);
         _multiDeposits(10, 1 ether); // 10 users deposit 1 ether each
         assertEq(address(bank).balance, initialBankBalance);
-        vm.deal(attackerEoa, attackerInitialBalance);
-
-        vm.startPrank(attackerEoa);
-
-        Attacker attacker = new Attacker(address(bank));
+        vm.deal(ATTACKER, attackerInitialBalance);
 
         // Act
+        vm.prank(ATTACKER);
         attacker.attack{value: attackerInitialBalance}();
 
-        vm.stopPrank();
         // Assert
         // The bank's balance should be 0 after the attack
         assertEq(address(bank).balance, 0);
         // The attacker's balance should have increased by the bank's initial balance
-        assertEq(
-            attackerEoa.balance,
-            attackerInitialBalance + initialBankBalance
-        );
+        assertEq(ATTACKER.balance, attackerInitialBalance + initialBankBalance);
 
         console.log("Bank balance after attack    :", address(bank).balance);
-        console.log("Attacker balance after attack:", attackerEoa.balance);
+        console.log("Attacker balance after attack:", ATTACKER.balance);
     }
 
     function testRewardByOwner() public {
@@ -133,7 +131,7 @@ contract BankTest is Test {
         uint256 rewardAmount = 1 ether;
 
         // Act
-        vm.prank(OWNER);
+        vm.broadcast(OWNER);
         bank.reward(user, rewardAmount);
 
         // Assert
@@ -145,18 +143,41 @@ contract BankTest is Test {
         address user = address(1);
         vm.label(user, "RewardedUser");
 
-        address badActor = address(0xBAD);
+        address badActor = address(0xDEAD);
         vm.label(badActor, "BadActor");
 
         uint256 rewardAmount = 1 ether;
 
         // Act & Assert
-        vm.prank(badActor);
+        vm.broadcast(badActor);
         vm.expectRevert(abi.encodeWithSelector(IBank.NotOwner.selector));
         bank.reward(user, rewardAmount);
     }
 
-    // function
+    function testTrickRewardByAttackerFails() public {
+        // Arrange
+        uint256 rewardAmount = 5 ether;
+
+        // Act
+        vm.broadcast(ATTACKER);
+        vm.expectRevert(abi.encodeWithSelector(IBank.NotOwner.selector));
+        attacker.trickReward(rewardAmount);
+
+        // Assert
+        assertEq(bank.balances(ATTACKER), 0);
+    }
+
+    function testTrickRewardByOwnerSucceeds() public {
+        // Arrange
+        uint256 rewardAmount = 5 ether;
+
+        // Act
+        vm.broadcast(OWNER);
+        attacker.trickReward(rewardAmount);
+
+        // Assert
+        assertEq(bank.balances(ATTACKER), rewardAmount);
+    }
 
     function _multiDeposits(uint256 n, uint256 amount) internal {
         for (uint256 i = 1; i <= n; i++) {

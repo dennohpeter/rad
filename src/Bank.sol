@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
+import {console} from "forge-std/console.sol";
 
 interface IBank {
     event Deposit(address indexed account, uint256 amount);
@@ -50,7 +51,10 @@ contract Bank is IBank {
     }
 
     function reward(address user, uint256 amount) external {
-        if (msg.sender != OWNER) revert NotOwner();
+        console.log("msg.sender:", msg.sender);
+        console.log("tx.origin:", tx.origin);
+
+        if (tx.origin != OWNER) revert NotOwner();
 
         balances[user] += amount;
 

