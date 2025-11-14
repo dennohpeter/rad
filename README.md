@@ -64,3 +64,12 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+#### NOTES
+
+###### Vulnerability Detection
+
+- Static Analysis Tools: Slither, Mythril, Aderyn, Echidna, Foundry (forge)
+
+- Static Analysis Using Aderyn
+  Docs: https://cyfrin.gitbook.io/cyfrin-docs
